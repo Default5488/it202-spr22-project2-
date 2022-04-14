@@ -1,0 +1,201 @@
+ <!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width">
+	<link rel="manifest" href="/manifest.webmanifest"><!--Get help establishing service worker-->
+	<title>Chuck</title>
+	
+	<style>
+		#canvas1 {
+/* 			background-color: silver; */
+			background-image: url("https://img.purch.com/rc/1280x800/aHR0cDovL3d3dy5zcGFjZS5jb20vaW1hZ2VzL2kvMDAwLzA0MC82OTgvb3JpZ2luYWwvZGVlcC1zcGFjZS1sYS1zaWxsYS0xOTIwLmpwZw==");
+/* 			background-image: "/imgs/space.jpg"; */
+		}
+		#elements{
+			text-color: black;
+			right: 30px;
+			top: 20px;
+		}
+	</style>
+</head>
+
+<body>
+	<canvas width=800 height=400 id="canvas1" style="background: https://img.purch.com/rc/1280x800/aHR0cDovL3d3dy5zcGFjZS5jb20vaW1hZ2VzL2kvMDAwLzA0MC82OTgvb3JpZ2luYWwvZGVlcC1zcGFjZS1sYS1zaWxsYS0xOTIwLmpwZw=="></canvas>
+	<input id="startButton" type="button" value="Start Game" onclick="startDraw();" />
+	
+	<script>
+		/*
+			Notes For as we go
+				-Push back to random x to change incoming distanc
+				-*Extra*Function to check objcts don't spawn on each other
+				-Some type of scaling factor for difficulty
+
+				-Lives ends draw loop some how
+		*/
+		// get a reference to the element and the drawing context
+
+		let c = document.querySelector("#canvas1");
+		let ctx = c.getContext("2d");
+		let playerShip = new Image();
+		let ben = new Image();
+		let harm = new Image();
+
+		playerShip.src = "./imgs/spaceShip.png";
+		ben.src = "./imgs/health.png";
+		harm.src = "./imgs/astroid.png";
+		
+		
+		//Objects
+		const gameObject =
+			[
+				{"type":"player", "x":30, "y":300, "radius":20, "deltaY":8, "color":"purple", "img":playerShip},
+				{"type":"harm", "x": 300, "y": 10, "radius":20, "deltaX":2, "color":"red", "img":harm},
+				{"type":"harm", "x":1003, "y":200, "radius":20, "deltaX":2, "color":"red", "img":harm},
+				{"type":"harm", "x":105, "y":400, "radius":20, "deltaX":2, "color":"red", "img":harm},
+				{"type":"harm", "x":1353, "y":220, "radius":20, "deltaX":2, "color":"red", "img":harm},
+				{"type":"benefit", "x":250, "y":350, "radius":20, "deltaX":2, "color":"green", "score":100, "img":ben},
+				{"type":"benefit", "x":450, "y":550, "radius":20, "deltaX":2, "color":"green", "score":100, "img":ben},
+			];
+
+			const gameValue ={"lives":3, "score":0, "level":0, "gameStatus":true};
+
+			//Player Control
+			window.addEventListener('keydown', (e) =>{
+				if(e.key == "ArrowUp"){
+					gameObject[0]["y"] -= gameObject[0]["deltaY"]; 
+				}else if(e.key == "ArrowDown") {gameObject[0]["y"] += gameObject[0]["deltaY"];}
+			});
+		
+
+		//Functions
+
+		
+		
+		//Service Worker
+		if('serviceWorker' in navigator) {
+    	navigator.serviceWorker.register('sw.js');
+  	};
+		
+		const collisionDetection = (obj1, obj2) => {
+			let a = obj1["x"] - obj2["x"];
+			let b = obj1["y"] - obj2["y"];
+			let c = (a*a) + (b*b);
+			var r = obj1["radius"] + obj2["radius"];
+			return r*r>=c;
+			
+		}
+
+		// const lvlStatus(){}
+		const benefitCollision = (obj) =>{
+			gameValue["score"] += 100;
+			console.log("Score: " + gameValue["score"]);
+		}
+
+		const harmCollision = () => {//Collision -100pts
+			if(gameValue["lives"]> 0){
+				gameValue["lives"] -= 1;
+				gameValue["score"] -= 100;
+				console.log("Lives: " + gameValue["lives"] + "\tScore: " + gameValue["score"]);
+			}else {console.log("End of game");}/*Terminating sequence*/
+		}
+
+		//**?Ask Help?**/
+		const startDraw = () => {
+			var background
+			draw();
+			document.querySelector("#startButton").disabled = true;
+		}
+		
+		function draw() {
+			let lives = gameValue["lives"];
+			let score = gameValue["score"];
+			let level = gameValue["level"];
+		
+			// clear drawing
+			ctx.clearRect(0, 0, c.width, c.height);
+
+			
+		//Edge Case Harm/Ben
+			gameObject.forEach((obj) => {
+				if(obj["type"] != "player"){
+					if(obj["x"] >= 0)
+						obj["x"] -= obj["deltaX"];
+					else{
+						obj["x"] = c.width;
+						obj["y"] = Math.random()*c.height-20;
+					}
+				}
+			});
+		
+		//Collision
+			gameObject.forEach((obj) =>{
+				if(obj["type"]!="player"){
+					if(collisionDetection(gameObject[0], obj)){
+						if(obj["type"] == "harm") 
+							harmCollision();
+						else if(obj["type"]=="benefit")
+							benefitCollision();
+						console.log(obj["type"]);
+						obj["x"] = c.width + Math.random()*20;//Position reset
+						obj["y"] = Math.random() * c.height;
+					}
+				}
+			});
+
+			
+			// render
+			gameObject.forEach((obj) =>{
+				ctx.beginPath();
+				// ctx.arc(obj["x"], obj["y"], obj["radius"], 0, 2 * Math.PI);
+				ctx.drawImage(obj["img"], obj["x"], obj["y"], 40, 40);
+				console.log("Drawn");
+				ctx.closePath();
+				// ctx.fillStyle = obj["color"];
+				ctx.fill();	
+
+				ctx.font = '20px sans-serif';
+				ctx.fillStyle = "white";
+				ctx.fillText("Lives: ", c.width-110, 20);
+				ctx.fillText(lives, c.width-50, 20);
+				ctx.fillText("Score: ", c.width-110, 40);
+				ctx.fillText(score, c.width-50, 40);
+				ctx.fillText("Level: " , c.width-110, 60);
+				ctx.fillText(level, c.width-50, 60);
+				
+				
+				ctx.textAlign = "left";
+			});
+			
+
+			// call function
+			if(gameValue["lives"]>0){
+				window.requestAnimationFrame(draw)
+			}else{
+				ctx.clearRect(0,0, c.width, c.height);
+				//Call a display function to write over final Screen
+				ctx.textAlign = "center";
+				ctx.fillStyle = "white";
+				ctx.fillText("Game Over", c.width/2, c.height/2);
+				ctx.fillText("Final Score: ", c.width/2, (c.height/2-20));
+				ctx.fillText(score, (c.width/2+120), c.height/2);
+			}
+
+				if((gameValue["score"]%500) == 0 && gameValue["score"]!=0){
+					gameObject.forEach((obj) =>{
+						if(obj["type"] != "player"){
+							obj["deltaX"] += 1;
+							console.log("Lvl up");
+						}
+					});
+				}
+			
+		}
+			//Contain draw inside of check, on button press. 
+			
+		
+	</script>
+</body>
+
+</html>
